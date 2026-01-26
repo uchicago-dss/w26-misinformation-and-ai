@@ -117,14 +117,88 @@ def filter_input_text(text, nlp):
 
     return full_text
 
-import spacy
+import csv
+from datetime import datetime
 
-if __name__ == "__main__":
+def save_articles(urls, out_csv="articles.csv"):
     nlp = spacy.blank("en")
     nlp.add_pipe("sentencizer")
 
-    url = "PASTE_A_NEWS_ARTICLE_URL"
-    text = get_article_content(url, nlp)
-    print(text)
+    rows = []
+    for url in urls:
+        try:
+            text = get_article_content(url, nlp)
+            status = "ok"
+        except Exception as e:
+            text = ""
+            status = f"fail:{type(e).__name__}"
+
+        rows.append({
+            "url": url,
+            "text": text,
+            "word_count": len(text.replace("$*$", " ").split()),
+            "collected_at": datetime.utcnow().isoformat(),
+            "status": status
+        })
+
+    with open(out_csv, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["url", "status", "word_count", "collected_at", "text"]
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+from collections import Counter
+
+STOPWORDS = {
+    "the","a","an","and","or","but","if","to","of","in","on","for","with","as",
+    "is","are","was","were","be","been","being","it","this","that","these","those",
+    "at","by","from","they","them","their","you","your","we","our","i","he","she",
+    "his","her","not","no","do","does","did","so","than","then",
+    "said","say","says"
+}
+
+def extract_top_keywords(texts, top_k=50):
+    words = []
+    for text in texts:
+        clean = text.replace("$*$", " ").lower()
+        tokens = re.findall(r"[a-z']+", clean)
+        tokens = [t for t in tokens if t not in STOPWORDS and len(t) >= 3]
+        words.extend(tokens)
+
+    return Counter(words).most_common(top_k)
 
 
+if __name__ == "__main__":
+    urls = ["https://www.wired.com/story/the-viral-doordash-girl-saga-unearthed-a-nightmare-for-black-creators/"
+            "https://www.usatoday.com/story/news/nation/2025/11/19/doordash-driver-charged-naked-customer/87351645007/"
+            "https://www.wired.com/story/the-viral-doordash-girl-saga-unearthed-a-nightmare-for-black-creators/"
+            "https://www.syracuse.com/crime/2025/11/doordash-driver-posts-video-of-partially-nude-oswego-man-she-says-exposed-himself-now-shes-been-arrested.html"
+            "https://people.com/doordash-driver-arrested-posted-video-tiktok-naked-sleeping-customer-11850899"
+            "https://www.localsyr.com/news/local-news/oswego-doordash-driver-in-court-for-allegations-she-posted-video-of-naked-customer-on-tiktok/"
+            "https://www.newsweek.com/olivia-henderson-doordash-delivery-sexual-assault-customer-video-arrest-11055111"
+            "https://www.foxcarolina.com/2025/11/18/doordash-driver-charged-after-recording-posting-video-nude-customer-police-say/"
+            "https://nypost.com/2025/11/17/us-news/doordash-driver-arrested-over-sharing-naked-vid-of-customer/"
+            "https://lawandcrime.com/crime/doordash-driver-whips-out-cellphone-and-films-illegal-tiktok-of-unconscious-and-half-naked-customer-then-makes-up-a-sexual-assault-claim-cops-say/"
+
+    ]
+
+    save_articles(urls)
+
+    texts = []
+    with open("articles.csv", "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row["status"] == "ok":
+                texts.append(row["text"])
+
+    keywords = extract_top_keywords(texts, top_k=50)
+
+    with open("top_keywords.csv", "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["keyword", "count"])
+        for k, c in keywords:
+            writer.writerow([k, c])
+
+    print("Saved articles.csv and top_keywords.csv")
