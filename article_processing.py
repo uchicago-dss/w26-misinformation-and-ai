@@ -125,13 +125,19 @@ def save_articles(urls, out_csv="articles.csv"):
     nlp.add_pipe("sentencizer")
 
     rows = []
+    texts = []
+
     for url in urls:
-        try:
-            text = get_article_content(url, nlp)
-            status = "ok"
-        except Exception as e:
-            text = ""
-            status = f"fail:{type(e).__name__}"
+      try:
+        text = get_article_content(url, nlp)
+        status = "ok"
+        texts.append(text)
+        print("[OK ]", url, "words=", len(text.replace("$*$", " ").split()))
+      except Exception as e:
+        text = ""
+        status = f"fail:{type(e).__name__}"
+        print("[FAIL]", url, status)
+
 
         rows.append({
             "url": url,
@@ -149,6 +155,8 @@ def save_articles(urls, out_csv="articles.csv"):
         writer.writeheader()
         writer.writerows(rows)
 
+    return texts
+
 from collections import Counter
 
 STOPWORDS = {
@@ -156,7 +164,7 @@ STOPWORDS = {
     "is","are","was","were","be","been","being","it","this","that","these","those",
     "at","by","from","they","them","their","you","your","we","our","i","he","she",
     "his","her","not","no","do","does","did","so","than","then",
-    "said","say","says"
+    "said","say","says","about","had","when","has"
 }
 
 def extract_top_keywords(texts, top_k=50):
@@ -171,34 +179,29 @@ def extract_top_keywords(texts, top_k=50):
 
 
 if __name__ == "__main__":
-    urls = ["https://www.wired.com/story/the-viral-doordash-girl-saga-unearthed-a-nightmare-for-black-creators/"
-            "https://www.usatoday.com/story/news/nation/2025/11/19/doordash-driver-charged-naked-customer/87351645007/"
-            "https://www.wired.com/story/the-viral-doordash-girl-saga-unearthed-a-nightmare-for-black-creators/"
-            "https://www.syracuse.com/crime/2025/11/doordash-driver-posts-video-of-partially-nude-oswego-man-she-says-exposed-himself-now-shes-been-arrested.html"
-            "https://people.com/doordash-driver-arrested-posted-video-tiktok-naked-sleeping-customer-11850899"
-            "https://www.localsyr.com/news/local-news/oswego-doordash-driver-in-court-for-allegations-she-posted-video-of-naked-customer-on-tiktok/"
-            "https://www.newsweek.com/olivia-henderson-doordash-delivery-sexual-assault-customer-video-arrest-11055111"
-            "https://www.foxcarolina.com/2025/11/18/doordash-driver-charged-after-recording-posting-video-nude-customer-police-say/"
-            "https://nypost.com/2025/11/17/us-news/doordash-driver-arrested-over-sharing-naked-vid-of-customer/"
-            "https://lawandcrime.com/crime/doordash-driver-whips-out-cellphone-and-films-illegal-tiktok-of-unconscious-and-half-naked-customer-then-makes-up-a-sexual-assault-claim-cops-say/"
+    urls = ["https://www.wired.com/story/the-viral-doordash-girl-saga-unearthed-a-nightmare-for-black-creators/",
+            "https://www.usatoday.com/story/news/nation/2025/11/19/doordash-driver-charged-naked-customer/87351645007/",
+            "https://www.wired.com/story/the-viral-doordash-girl-saga-unearthed-a-nightmare-for-black-creators/",
+            "https://www.syracuse.com/crime/2025/11/doordash-driver-posts-video-of-partially-nude-oswego-man-she-says-exposed-himself-now-shes-been-arrested.html",
+            "https://people.com/doordash-driver-arrested-posted-video-tiktok-naked-sleeping-customer-11850899",
+            "https://www.localsyr.com/news/local-news/oswego-doordash-driver-in-court-for-allegations-she-posted-video-of-naked-customer-on-tiktok/",
+            "https://www.newsweek.com/olivia-henderson-doordash-delivery-sexual-assault-customer-video-arrest-11055111",
+            "https://www.foxcarolina.com/2025/11/18/doordash-driver-charged-after-recording-posting-video-nude-customer-police-say/",
+            "https://nypost.com/2025/11/17/us-news/doordash-driver-arrested-over-sharing-naked-vid-of-customer/",
+            "https://lawandcrime.com/crime/doordash-driver-whips-out-cellphone-and-films-illegal-tiktok-of-unconscious-and-half-naked-customer-then-makes-up-a-sexual-assault-claim-cops-say/",
 
     ]
 
     save_articles(urls)
 
-    texts = []
-    with open("articles.csv", "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if row["status"] == "ok":
-                texts.append(row["text"])
+    
 
-    keywords = extract_top_keywords(texts, top_k=50)
+texts = save_articles(urls)
 
-    with open("top_keywords.csv", "w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["keyword", "count"])
-        for k, c in keywords:
-            writer.writerow([k, c])
+keywords = extract_top_keywords(texts, top_k=50)
 
-    print("Saved articles.csv and top_keywords.csv")
+for k, c in keywords[:50]:
+    print(k, c)
+
+print("Number of usable articles:", len(texts))
+
