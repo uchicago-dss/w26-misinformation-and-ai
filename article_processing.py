@@ -141,11 +141,11 @@ def save_articles(urls, out_csv="articles.csv"):
 
         rows.append({
             "url": url,
-            "text": text,
+            "status": status,
             "word_count": len(text.replace("$*$", " ").split()),
             "collected_at": datetime.utcnow().isoformat(),
-            "status": status
-        })
+            "text": text
+            })
 
     with open(out_csv, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
@@ -156,6 +156,12 @@ def save_articles(urls, out_csv="articles.csv"):
         writer.writerows(rows)
 
     return texts
+
+import os
+
+print("CWD:", os.getcwd())
+print("top_keywords.csv exists?", os.path.exists("top_keywords.csv"))
+
 
 from collections import Counter
 
@@ -205,3 +211,9 @@ for k, c in keywords[:50]:
 
 print("Number of usable articles:", len(texts))
 
+with open("top_keywords.csv", "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["keyword", "count"])
+        w.writerows(keywords)
+
+print("Saved:", os.path.abspath("top_keywords.csv"))
