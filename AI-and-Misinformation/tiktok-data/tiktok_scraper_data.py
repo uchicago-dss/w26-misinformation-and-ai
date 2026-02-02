@@ -1,4 +1,4 @@
-import asyncio, json
+import asyncio
 import pandas as pd
 from pathlib import Path
 from typing import Any
@@ -18,13 +18,13 @@ def load_existing_data(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     try:
-        df = pd.read_csv(OUT_FILE)
+        df = pd.read_csv(path)
         return df.to_dict(orient="records")
     except:
         return []
     
 # gets the raw data from each video
-async def retrieve_video(api: TikTokApi, vid_id: str) -> dict:
+async def retrieve_video(api: TikTokApi, vid_id: str) -> dict | None:
         url = f"https://www.tiktok.com/@_/video/{vid_id}"
         try:
             video_info = await api.video(url=url).info()
@@ -34,11 +34,13 @@ async def retrieve_video(api: TikTokApi, vid_id: str) -> dict:
             return None
 
 async def main():
-    def tiktok_id_to_datetime(video_id: str) -> datetime:
-        # TikTok epoch starts at 2015-01-01
-        TIKTOK_EPOCH = 1420070400000
-        timestamp_ms = (int(video_id) >> 32) + TIKTOK_EPOCH
-        return datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+    def tiktok_id_to_datetime(video_id: str) -> datetime | None:
+        try:
+            TIKTOK_EPOCH = 1420070400000
+            timestamp_ms = (int(video_id) >> 32) + TIKTOK_EPOCH
+            return datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+        except Exception:
+            return None
 
     tags = load_tags(IN_FILE)
     data = load_existing_data(OUT_FILE)
@@ -46,31 +48,35 @@ async def main():
     async with TikTokApi() as api:
         await api.create_sessions(
             num_sessions=1,
-            headless=True,
+            headless=False,
             sleep_after=3,
         )
 
         existing_ids = {row["video_id"] for row in data if "video_id" in row}
         for topic in tags:
+            print(topic)
             for vid_id in tags[topic]:
                 # skip videos that have already been searched
                 if vid_id in existing_ids:
-                    print(f"{vid_id} in exisiting_ids")
                     continue
 
                 video_info = await retrieve_video(api=api, vid_id=vid_id)
                 if video_info is None:
-                    print(f"{vid_id} has no info")
                     continue
 
                 author_stats = video_info.get("authorStatsV2", {})
 
                 row = {
                     "source": "TikTok",
+                    "tag": topic,
 
                     # ---- Video identifiers ----
                     "video_id": vid_id,
-                    "post_date_utc": tiktok_id_to_datetime(vid_id).isoformat(),
+                    "post_date_utc": (
+                        tiktok_id_to_datetime(vid_id).isoformat()
+                        if tiktok_id_to_datetime(vid_id)
+                        else None
+                    ),
                     "description": video_info.get("desc"),
                     "text_language": video_info.get("textLanguage"),
                     "category_type": video_info.get("CategoryType"),
@@ -97,10 +103,11 @@ async def main():
                 }
                 existing_ids.add(vid_id)
                 data.append(row)
-            pd.DataFrame(data).to_csv(OUT_FILE)
+
+            pd.DataFrame(data).to_csv(OUT_FILE, index=False)
 
     # store in csv
-    pd.DataFrame(data).to_csv(OUT_FILE)
+    pd.DataFrame(data).to_csv(OUT_FILE, index=False)
         
 async def test():
     async with TikTokApi() as api:

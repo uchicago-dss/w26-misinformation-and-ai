@@ -12,7 +12,7 @@ UA: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, 
 # Output Folder
 # PROXY = {"server": "http://host:port"}
 BASE_DIR = Path(__file__).resolve().parent
-TOPICS = BASE_DIR / "topics"
+TOPICS = BASE_DIR / "topics.txt"
 OUT_FOLDER = BASE_DIR / "data"
 OUT_FILE = OUT_FOLDER / "ids.json"
 STORAGE: Path = BASE_DIR / "./tiktok_storage_state.json"
@@ -67,8 +67,9 @@ async def collect_tags(page: Page, tag: str, target_per = TARGET_PER, time_limit
             seen.add(vid)
 
     page.on("response", handle_response)
-    stall = 0 
-    while len(seen) < target_per and stall <= 25:
+    stall = 0
+    prev_hrefs = 0
+    while len(seen) < target_per and stall <= 5:
         if await link_loc.count() > 0:
             try:
                 await link_loc.last.scroll_into_view_if_needed(timeout=2000)
@@ -76,7 +77,7 @@ async def collect_tags(page: Page, tag: str, target_per = TARGET_PER, time_limit
                 pass
 
         
-        await body.evaluate("el => el.scrollBy(0, el.clientHeight * 0.95)")
+        await page.mouse.wheel(0, random.randint(800, 1400))
         await asyncio.sleep(random.uniform(0.5, 1.5))        
 
         hrefs = await link_loc.evaluate_all("els => els.map(a => a.href).filter(Boolean)")
@@ -89,10 +90,12 @@ async def collect_tags(page: Page, tag: str, target_per = TARGET_PER, time_limit
         while await page.get_by_text("Verify", exact=False).count() and verify_count < 180:
             await asyncio.sleep(1)
             verify_count += 1
-        
-        # if theres no tags just skip to next
-        if len(seen) == 0:
+
+        if prev_hrefs - len(hrefs) >= 0:
             stall += 1
+        else:
+            prev_hrefs = len(hrefs)
+
 
     print(f"saved {len(seen)} tags to {tag}")
     return list(seen)[:target_per]
@@ -126,9 +129,12 @@ async def main():
             ids = await collect_tags(page, tag, TARGET_PER)
             # merge lists
             data[tag] = (data.get(tag) or []) + ids
+        
             OUT_FOLDER.mkdir(parents=True, exist_ok=True)
-
             with OUT_FILE.open("w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+    
+        with OUT_FILE.open("w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
 if __name__ == "__main__":
