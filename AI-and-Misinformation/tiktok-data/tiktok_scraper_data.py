@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from TikTokApi import TikTokApi
 from datetime import datetime, timezone
-from tiktok_scraper_tags import load_tags
+from tiktok_scraper_id import load_tags
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_FOLDER = BASE_DIR / "data"

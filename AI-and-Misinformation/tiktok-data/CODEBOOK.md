@@ -12,7 +12,7 @@
 ### Data Collection Notes
 - Video metadata was collected in [tiktok_scraper_data](tiktok_scraper_data.py) by videos ids collected in [tiktok_scraper_id](tiktok_scraper_id.py).  
 - Engagement metrics reflect values at the time of collection and may change over time.
-- **[tiktok_scraper_id](tiktok_scraper_id.py) is referenced by https://github.com/Tahvia127/Hashtags-For-Change/tree/main/TikTok_Data**
+- **Thank you and lots of credit to https://github.com/Tahvia127/Hashtags-For-Change/tree/main/TikTok_Data for references**
 
 ---
 
