@@ -1,3 +1,5 @@
 # w26-misinformation-and-ai YouTube Codebook
 
-video_id
+video data frame
+comments data frame
+video stats data frame

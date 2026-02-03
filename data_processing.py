@@ -13,10 +13,10 @@ def aggregate(key_word, query_list):
         df.append(pd.read_csv(f"data/doordash_girl_{key_word}_{'_'.join(query.split())}.csv"))
 
     df_save = pd.concat(df, ignore_index=True) # as to not have list of df
-    df_save.to_csv(f"doordash_girl_url_AGGR.csv", index=False)
+    df_save.to_csv(f"yt_doordash_girl_{key_word}_AGGR.csv", index=False)
 
     return None
-
+    
 
 def clean_get_url_data(df, remove_list):
     """
@@ -33,6 +33,6 @@ def clean_get_url_data(df, remove_list):
     df['publish_date'] = pd.to_datetime(df['publish_date'])
     df['publish_date'] = df['publish_date'].dt.strftime('%m-%d-%y')
 
-    df.to_csv("doordash_girl_url_AGGR_clean.csv", index=False)
+    df.to_csv("yt_doordash_girl_url_AGGR_clean.csv", index=False)
 
     return None

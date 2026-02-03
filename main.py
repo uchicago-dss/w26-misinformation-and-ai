@@ -65,36 +65,43 @@ def main():
         '4Sl5NEcHu2M',
         'rWFdvIXiI',
         'R0IAtFlRPq4',
-        'NMFZjDfe5C8'
+        'NMFZjDfe5C8',
+        '5No0Io1vBho' # unavail video
     ]
 
     # df = pd.read_csv("data/doordash_girl_url_AGGR.csv")
     # clean_get_url_data(df, remove_id)
 
-    df = pd.read_csv("data/doordash_girl_url_AGGR_clean.csv")
+    df = pd.read_csv("data/yt_doordash_girl_url_AGGR_clean.csv")
     video_id_list = df['video_id']
 
-    # GET COMMENTSL:
-    def fetch_comments_batch():
-        batch_size = 5
-        batch_num = 1
+    # GET COMMENTS:
+    # fetch_comments(video_id_list)
 
-        for i in range(0, len(video_id_list), batch_size):
-            lst = video_id_list[i:(i + batch_size)]
+    # AGGREGATE COMMENTS:
+    batch_list = []
+    for i in range(1, 14):
+        batch_list.append(f'batch{i}')
 
-            print(f"Running get_comments_data for batch {batch_num}...")
+    aggregate('comments', batch_list)
 
-            get_comments_data(lst, batch_num)
 
-            print(f"Successfully ran get_comments_data for batch {batch_num}!\n")
-            batch_num += 1
-            time.sleep(1)
+def fetch_comments(id):
+    batch_size = 10
+    batch_num = 13
+    # problem so re-ran batch 13
+    # to start from first video -> batch_num = 1, and range(0, len(id), batch_size)
 
-        # test_list = ['f1B2uJK2REk']
-        # get_comments_data(test_list, 'test')
+    for i in range(120, len(id), batch_size):
+        lst = id[i:(i + batch_size)]
 
-        # ENDED AFTER BATCH 2
+        print(f"Running get_comments_data for batch {batch_num}...")
 
+        get_comments_data(lst, batch_num)
+
+        print(f"Successfully ran get_comments_data for batch {batch_num}!\n")
+        batch_num += 1
+        time.sleep(5)
 
 
 if __name__ == "__main__":

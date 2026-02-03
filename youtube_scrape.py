@@ -1,5 +1,5 @@
 """
-Project: Misinfo and AI (YouTube)
+Project: Misinformation and AI (YouTube)
 Module: youtube_scrape.py
 ==============================
 """
@@ -14,7 +14,7 @@ from datetime import datetime
 from googleapiclient.errors import HttpError
 
 
-API_KEY = "" # DO NOT UPLOAD KEY TO GITHUB
+API_KEY = "AIzaSyBARuAHhiqLoC5ce1b4S8DP3OLslbYxro8" # DO NOT UPLOAD KEY TO GITHUB
 youtube = build('youtube', 'v3', developerKey=API_KEY)
 
 
@@ -208,14 +208,29 @@ def get_transcript_data(url_df):
     return None
 
 
-def get_stats(video_id):
+def get_video_stats(video_id):
     """
     Gets stats for video.
+
+    video_id
+    duration
+    video_like_count
+    video_comment_count
+    view_count
+    """
+
+
+def get_channel_stats(channel_id):
+    """
+    code here
     """
 
 
 def get_comments(video_id, max_results=100):
     """
+    Gets the top 100 comments, sorted by relevance (YouTube top comments) for a
+    given video id, as well as the first 5 replies for each comment, if any.
+
     COLUMNS FOR COMMENT DATA:
     video_id
     comment_id
@@ -231,68 +246,62 @@ def get_comments(video_id, max_results=100):
         - comments (string[]) lol?
     """
     print(f"Running get_comments for {video_id}....")
-    next_page_token = None
     comments = []
 
-    while True:
-        request = youtube.commentThreads().list(
-            videoId=video_id,
-            part='snippet',
-            maxResults=max_results,
-            textFormat='plainText',
-            pageToken=next_page_token
-        )
-        response = request.execute()
+    request = youtube.commentThreads().list(
+        videoId=video_id,
+        part='snippet',
+        maxResults=max_results,
+        order="relevance",
+        textFormat='plainText'
+    )
+    response = request.execute()
 
-        for item in response.get('items', []):
-            # get top comment
-            top_snippet = item['snippet']['topLevelComment']['snippet']
-            top_comment_id = item['snippet']['topLevelComment']['id']
+    for item in response.get('items', []):
+        # get top comment
+        top_snippet = item['snippet']['topLevelComment']['snippet']
+        top_comment_id = item['snippet']['topLevelComment']['id']
 
-            top_row = {
-                'video_id': video_id,
-                'comment_id': top_comment_id,
-                'parent_id': None,
-                'reply_count': item['snippet']['totalReplyCount'],
-                'author_display_name': top_snippet['authorDisplayName'],
-                'text_display': top_snippet['textDisplay'],
-                'like_count': top_snippet['likeCount'],
-                'published_at': top_snippet['publishedAt'],
-                'updated_at': top_snippet['updatedAt'],
-                'accessed_at': datetime.now()
-            }
-            comments.append(top_row)
+        top_row = {
+            'video_id': video_id,
+            'comment_id': top_comment_id,
+            'parent_id': None,
+            'reply_count': item['snippet']['totalReplyCount'],
+            'author_display_name': top_snippet['authorDisplayName'],
+            'text_display': top_snippet['textDisplay'],
+            'like_count': top_snippet['likeCount'],
+            'published_at': top_snippet['publishedAt'],
+            'updated_at': top_snippet['updatedAt'],
+            'accessed_at': datetime.now()
+        }
+        comments.append(top_row)
 
-            if top_row['reply_count'] > 0:
+        if top_row['reply_count'] > 0:
 
-                reply_request = youtube.comments().list(
-                    part='snippet',
-                    parentId=top_comment_id,
-                    maxResults=100
-                )
-                reply_response = reply_request.execute()
+            reply_request = youtube.comments().list(
+                part='snippet',
+                parentId=top_comment_id,
+                maxResults=5
+            )
+            reply_response = reply_request.execute()
 
-                for reply in reply_response['items']:
-                    snippet = reply['snippet']
+            for reply in reply_response['items']:
+                snippet = reply['snippet']
 
-                    reply_row = {
-                        'video_id': video_id,
-                        'comment_id': reply['id'],
-                        'parent_id': top_comment_id,
-                        'reply_count': None,
-                        'author_display_name': snippet['authorDisplayName'],
-                        'text_display': snippet['textDisplay'],
-                        'like_count': snippet['likeCount'],
-                        'published_at': snippet['publishedAt'],
-                        'updated_at': snippet['updatedAt'],
-                        'accessed_at': datetime.now()
-                    }
-                    comments.append(reply_row)
+                reply_row = {
+                    'video_id': video_id,
+                    'comment_id': reply['id'],
+                    'parent_id': top_comment_id,
+                    'reply_count': None,
+                    'author_display_name': snippet['authorDisplayName'],
+                    'text_display': snippet['textDisplay'],
+                    'like_count': snippet['likeCount'],
+                    'published_at': snippet['publishedAt'],
+                    'updated_at': snippet['updatedAt'],
+                    'accessed_at': datetime.now()
+                }
+                comments.append(reply_row)
 
-        next_page_token = response.get('nextPageToken')
-        if not next_page_token:
-            break
-    
     print(f"Successfully ran get_comments for {video_id}!\n")
 
     return comments
