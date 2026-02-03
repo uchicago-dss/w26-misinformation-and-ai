@@ -55,23 +55,29 @@ def remove_caps_sequences(text, min_consecutive_caps=3):
     
     return ' '.join(result)
 
+from trafilatura.metadata import extract_metadata
+
 def get_article_content(url, nlp):
-    response = requests.get(url, timeout=10, headers=headers)
-    if response.status_code != 200:
-        print(f"Error: Status code {response.status_code}")
-        raise Exception(f"Error: Status code {response.status_code}")
-    tra_text = trafilatura.extract(response.text)
-    
-    # Handle case where trafilatura couldn't extract any content
-    if tra_text is None or len(tra_text.strip()) == 0:
-        print(f"Error: trafilatura could not extract content from {url}")
-        raise Exception(f"Error: Could not extract article content from URL")
-    
-    doc: spacy.tokens.doc.Doc = nlp(tra_text)
+    downloaded = trafilatura.fetch_url(url)
+
+    if not downloaded:
+        raise Exception("Download failed")
+
+    tra_text = trafilatura.extract(downloaded)
+
+    if not tra_text or len(tra_text.strip()) == 0:
+        raise Exception("Could not extract article content")
+
+    metadata = extract_metadata(downloaded)
+    publish_date = metadata.date if metadata else None
+
+    doc = nlp(tra_text)
     tokenized_text = [x.text for x in doc.sents]
     cleaned_text = extract_article_text(tokenized_text, nlp)
     gpt_format = '$*$ '.join([x.strip() for x in cleaned_text])
-    return gpt_format
+
+    return gpt_format, publish_date
+
 
 
 def extract_article_text(paragraphs, nlp, min_words=3, min_density=0.3, min_caps_sequence=3):
@@ -120,37 +126,63 @@ def filter_input_text(text, nlp):
 import csv
 from datetime import datetime
 
+from dateutil import parser
+
+def standardize_date(date_str):
+    if not date_str:
+        return ""
+
+    try:
+        dt = parser.parse(date_str)
+        return dt.strftime("%m-%d-%Y")
+    except:
+        return ""
+    
+
 def save_articles(urls, out_csv="articles.csv"):
     nlp = spacy.blank("en")
     nlp.add_pipe("sentencizer")
 
+    seen = set()
+    deduped_urls = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u)
+            deduped_urls.append(u)
+        else:
+            print("[SKIP duplicate URL]", u)
+
     rows = []
     texts = []
 
-    for url in urls:
-      try:
-        text = get_article_content(url, nlp)
-        status = "ok"
-        texts.append(text)
-        print("[OK ]", url, "words=", len(text.replace("$*$", " ").split()))
-      except Exception as e:
+    for url in deduped_urls:
         text = ""
-        status = f"fail:{type(e).__name__}"
-        print("[FAIL]", url, status)
+        status = "fail"
+        std_date = ""
 
+        try:
+            text, publish_date = get_article_content(url, nlp)
+            std_date = standardize_date(publish_date)
+            status = "ok"
+            texts.append(text)
+            print("[OK ]", url, "date=", std_date, "words=", len(text.replace("$*$", " ").split()))
+        except Exception as e:
+            status = f"fail:{type(e).__name__}"
+            print("[FAIL]", url, status)
 
         rows.append({
             "url": url,
+            "published_date": std_date,
             "status": status,
             "word_count": len(text.replace("$*$", " ").split()),
             "collected_at": datetime.utcnow().isoformat(),
             "text": text
-            })
+        })
 
     with open(out_csv, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["url", "status", "word_count", "collected_at", "text"]
+            fieldnames=["url", "published_date", "status", "word_count", "collected_at", "text"]
         )
         writer.writeheader()
         writer.writerows(rows)
@@ -173,16 +205,61 @@ STOPWORDS = {
     "said","say","says","about","had","when","has"
 }
 
-def extract_top_keywords(texts, top_k=50):
-    words = []
+EXTRA_STOPWORDS = {
+    "one","two","three","first","second",
+    "after","before","during","while","when","where","who","whom","whose","which",
+    "also","still","just","now","then","than",
+    "could","would","should","may","might","must","can",
+    "into","over","under","between","within","without","across","around",
+    "said","say","says","according","report","reported","reports","told",
+    "police","officials","authorities","statement",
+    "oct","nov","dec","jan","feb","mar","apr","jun","jul","aug","sep",
+    "day","days","week","weeks","year","years",
+}
+STOPWORDS = STOPWORDS.union(EXTRA_STOPWORDS)
+
+
+def extract_top_keywords(texts, top_k=50, min_count=1):
+    nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
+    counter = Counter()
+
+    for text in texts:
+        clean = text.replace("$*$", " ")
+        doc = nlp(clean)
+
+        for token in doc:
+            t = token.text.lower()
+
+            if token.pos_ not in {"NOUN", "PROPN"}:
+                continue
+            if t in STOPWORDS:
+                continue
+            if len(t) < 3:
+                continue
+            if not re.match(r"^[a-z']+$", t):
+                continue
+
+            counter[t] += 1
+    items = [(k, c) for k, c in counter.most_common() if c >= min_count]
+    return items[:top_k]
+
+FOCUS = {"deepfake", "ai", "surveillance", "tiktok", "doordash", "court", "arrest", "assault", "misinformation"}
+
+def extract_top_bigrams(texts, top_k=30, min_count=3):
+    bigrams = []
     for text in texts:
         clean = text.replace("$*$", " ").lower()
         tokens = re.findall(r"[a-z']+", clean)
         tokens = [t for t in tokens if t not in STOPWORDS and len(t) >= 3]
-        words.extend(tokens)
 
-    return Counter(words).most_common(top_k)
+        for i in range(len(tokens) - 1):
+            a, b = tokens[i], tokens[i+1]
+            if (a in FOCUS) or (b in FOCUS):
+                bigrams.append(a + " " + b)
 
+    c = Counter(bigrams)
+    items = [(k, v) for k, v in c.most_common() if v >= min_count]
+    return items[:top_k]
 
 if __name__ == "__main__":
     urls = ["https://www.wired.com/story/the-viral-doordash-girl-saga-unearthed-a-nightmare-for-black-creators/",
@@ -198,18 +275,18 @@ if __name__ == "__main__":
 
     ]
 
-    save_articles(urls)
-
-    
-
 texts = save_articles(urls)
 
-keywords = extract_top_keywords(texts, top_k=50)
+keywords = extract_top_keywords(texts, top_k=50, min_count=5)
 
 for k, c in keywords[:50]:
     print(k, c)
 
 print("Number of usable articles:", len(texts))
+
+bigrams = extract_top_bigrams(texts, top_k=30, min_count=3)
+for k, c in bigrams:
+    print(k, c)
 
 with open("top_keywords.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
