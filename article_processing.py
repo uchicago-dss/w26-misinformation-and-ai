@@ -293,4 +293,10 @@ with open("top_keywords.csv", "w", encoding="utf-8", newline="") as f:
         w.writerow(["keyword", "count"])
         w.writerows(keywords)
 
+with open("top_bigrams.csv", "w", encoding="utf-8", newline="") as f:
+    w = csv.writer(f)
+    w.writerow(["bigram", "count"])
+    w.writerows(bigrams)
+
 print("Saved:", os.path.abspath("top_keywords.csv"))
+print("Saved bigrams:", os.path.abspath("top_bigrams.csv"))
