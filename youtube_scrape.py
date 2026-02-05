@@ -7,14 +7,15 @@ Module: youtube_scrape.py
 import pandas as pd
 from googleapiclient.discovery import build
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
+from youtube_transcript_api.proxies import WebshareProxyConfig
 import time
 import random
 from datetime import datetime
 from googleapiclient.errors import HttpError
 
 
-API_KEY = "AIzaSyBARuAHhiqLoC5ce1b4S8DP3OLslbYxro8" # DO NOT UPLOAD KEY TO GITHUB
+API_KEY = "" # DO NOT UPLOAD KEY TO GITHUB
 youtube = build('youtube', 'v3', developerKey=API_KEY)
 
 
@@ -43,6 +44,20 @@ comments_columns = [
 transcript_columns = [
     'video_id',
     'transcript'
+]
+
+stats_columns = [
+    'video_id',
+    'duration',
+    'like_count',
+    'comment_count',
+    'view_count',
+    'accessed_at'
+]
+
+channel_columns = [
+    'channel_id',
+    'channel_following'
 ]
 
 
@@ -146,11 +161,19 @@ def get_transcript(video_id):
         - if unable to get english transcript or encounter other isuses,
             returns an error message
     """
+    # add porxy_username and proxy_password before running
 
-    api = YouTubeTranscriptApi()
+    ytt_api = YouTubeTranscriptApi(
+        proxy_config = WebshareProxyConfig(
+            proxy_username = "",
+            proxy_password = "",
+        )
+    )
+
+    print(f"Running get_transcript_data for {video_id}...")
 
     try:
-        transcript_list = api.list(video_id)
+        transcript_list = ytt_api.list(video_id)
 
         try:
             transcript = transcript_list.find_transcript(['en'])
@@ -158,7 +181,6 @@ def get_transcript(video_id):
             transcript = next(iter(transcript_list)).translate('en')
 
         tx = transcript.fetch()
-
         out_ls = []
 
         for i in tx:
@@ -167,10 +189,12 @@ def get_transcript(video_id):
 
         full_text = " ".join(out_ls)
 
-        print(f"Success for {video_id}!\n")
+        print(f"Success for {video_id}!")
         return full_text
 
     # error handling
+    except VideoUnavailable:
+        return f"ERROR: Video {video_id} is unavailable (likely geoblocked or private)."
     except TranscriptsDisabled:
         return "ERROR: Transcripts disabled for this video."
     except NoTranscriptFound:
@@ -179,51 +203,118 @@ def get_transcript(video_id):
         return f"ERROR: {e}"
 
 
-def get_transcript_data(url_df):
+def get_transcript_data(id_list, batch_num):
     """
     Calls the get_transcript() function from youtube_scrape.py for a series of
     urls. Saves the transcripts as a csv with 2 columns: video_id and transcript
 
     Args:
-        - url_df: a data frame with a series of YouTube video IDs
+        - id_list[]: a list of YouTube video IDs
 
     Returns:
         - None
     """
-    # print("Running get_transcript_data function...\n")
-
-    temp = url_df.head()
-
     row = []
 
-    for id in temp['video_id']:
-        print(f"Running get_transcript for {id}...")
+    for id in id_list:
+        # clean_id = str(id).strip()
+        print(f"\nProcessing {id}")
+        
         row.append([id, get_transcript(id)])
 
         time.sleep(random.uniform(10, 30)) # wait time to prevent IP ban
 
     df = pd.DataFrame(row, columns=transcript_columns)
-    df.to_csv("doordash_girl_text_data.csv", index=False)
+    df.to_csv(f"doordash_girl_tscript_batch{batch_num}.csv", index=False)
 
     return None
 
 
-def get_video_stats(video_id):
+def get_video_stats(video_id_list):
     """
-    Gets stats for video.
+    Gets stats for video + channel
 
     video_id
     duration
     video_like_count
     video_comment_count
     view_count
+    accessed_at
     """
+    print("Running get_video_stats...")
+    stats_list = []
+
+    id_aggr = [video_id_list[:50], video_id_list[50:100], video_id_list[100:]]
+
+    for i, row in enumerate(id_aggr):
+        id_aggr[i] = ','.join(row)
 
 
-def get_channel_stats(channel_id):
+    for string in id_aggr:
+
+        request = youtube.videos().list(
+            id=string,
+            part='statistics,contentDetails'
+        )
+
+        response = request.execute()
+
+        for item in response.get('items', []):
+            stats = item['statistics']
+
+            row = {
+                'video_id': item['id'],
+                'duration': item.get('contentDetails', {}).get('duration'),
+                'like_count': int(stats.get('likeCount', -1)),
+                'comment_count': int(stats.get('commentCount', -1)),
+                'view_count': int(stats.get('viewCount', -1)),
+                'accessed_at': datetime.now()
+            }
+
+            stats_list.append(row)
+
+
+    df = pd.DataFrame(stats_list, columns=stats_columns)
+    df.to_csv("yt_doordash_girl_stats.csv", index=False)
+
+    print("Success!")
+
+    return None
+
+
+def get_channel_stats(channel_id_list):
     """
-    code here
+    data: channel_following, channel_id
     """
+    print("Running get_channel_stats...")
+    lst = []
+
+    id_aggr = [channel_id_list[:50], channel_id_list[50:100], channel_id_list[100:]]
+
+    for i, row in enumerate(id_aggr):
+        id_aggr[i] = ','.join(row)
+    
+    for string in id_aggr:
+        request = youtube.channels().list(
+            id=string,
+            part='statistics'
+        )
+
+        response = request.execute()
+
+        for item in response.get('items', []):
+            row = {
+                'channel_id': item['id'],
+                'channel_following': int(item['statistics'].get('subscriberCount', -1))
+            }
+
+            lst.append(row)
+    
+    df = pd.DataFrame(lst, columns=channel_columns)
+    df.to_csv("yt_doordash_girl_channel.csv", index=False)
+
+    print("Success!")
+    return None
 
 
 def get_comments(video_id, max_results=100):
@@ -307,7 +398,7 @@ def get_comments(video_id, max_results=100):
     return comments
 
 
-def get_comments_data(video_id_df, key_num):
+def get_comments_data(video_id_df, batch_num):
     """
     Calls the get_comments() function from youtube_scrape.py for a series of
     video ids. Combines the comments data for all video ids of interest into
@@ -325,7 +416,7 @@ def get_comments_data(video_id_df, key_num):
         data.extend(get_comments(id))
 
     df = pd.DataFrame(data, columns=comments_columns)
-    df.to_csv(f"doordash_girl_comments_batch{key_num}.csv", index=False)
+    df.to_csv(f"doordash_girl_comments_batch{batch_num}.csv", index=False)
 
     # df.to_csv("comments.csv", index=False)
 

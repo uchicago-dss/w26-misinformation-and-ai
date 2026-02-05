@@ -69,31 +69,25 @@ def main():
         '5No0Io1vBho' # unavail video
     ]
 
-    # df = pd.read_csv("data/doordash_girl_url_AGGR.csv")
-    # clean_get_url_data(df, remove_id)
+    # df = pd.read_csv("data/yt_doordash_girl_url_AGGR_clean.csv")
+    # video_id_list = df['video_id'].astype(str).tolist() # want a list
+    # channel_id_list = df['channel_id'].astype(str).tolist()
 
-    df = pd.read_csv("data/yt_doordash_girl_url_AGGR_clean.csv")
-    video_id_list = df['video_id']
+    # batch_list = []
+    # for i in range(1, 14):
+    #     batch_list.append(f'batch{i}')
 
-    # GET COMMENTS:
-    # fetch_comments(video_id_list)
-
-    # AGGREGATE COMMENTS:
-    batch_list = []
-    for i in range(1, 14):
-        batch_list.append(f'batch{i}')
-
-    aggregate('comments', batch_list)
+    # final_aggregate()
 
 
-def fetch_comments(id):
+def fetch_comments(id_list):
     batch_size = 10
     batch_num = 13
     # problem so re-ran batch 13
     # to start from first video -> batch_num = 1, and range(0, len(id), batch_size)
 
-    for i in range(120, len(id), batch_size):
-        lst = id[i:(i + batch_size)]
+    for i in range(120, len(id_list), batch_size):
+        lst = id_list[i:(i + batch_size)]
 
         print(f"Running get_comments_data for batch {batch_num}...")
 
@@ -103,6 +97,20 @@ def fetch_comments(id):
         batch_num += 1
         time.sleep(5)
 
+def fetch_transcript(id_list):
+    batch_size = 10
+    batch_num = 2
+
+    for i in range(10, len(id_list), batch_size):
+        lst = id_list[i:(i+batch_size)]
+
+        print(f"\nRunning get_transcripts_data for batch {batch_num}...")
+
+        get_transcript_data(lst, batch_num)
+
+        print(f"Successfully ran get_trancsripts_data for batch {batch_num}!\n")
+        batch_num += 1
+        time.sleep(5)
 
 if __name__ == "__main__":
     main()
