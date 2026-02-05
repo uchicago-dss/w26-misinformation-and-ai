@@ -1,6 +1,6 @@
 # w26-misinformation-and-ai YouTube Codebook
 
-## yt_doordash_girl_video_finalAGGR.csv
+## yt_doordash_girl_video_finalAGGR_clean.csv (24691 rows)
 
 | Variable | Description |
 | -------- | ----------- |
@@ -19,7 +19,7 @@
 | accessed_at | date and time at which video and channel statistics were retrieved, in YYYY-MM-DD HH:MM:SS.mmmmmm format |
 | trascript | english transcript of the video, if available (value = None if not) |
 
-## yt_doordash_girl_comments_AGGR.csv
+## yt_doordash_girl_comments_AGGR_clean.csv (126 rows)
 
 | Variable | Description |
 | -------- | ----------- |

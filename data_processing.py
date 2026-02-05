@@ -82,3 +82,30 @@ def final_aggregate():
 
     print("Success!")
     return None
+
+
+def clean_agg(remove_list):
+
+    video_df = pd.read_csv("data/yt_doordash_girl_video_finalAGGR.csv")
+    comments_df = pd.read_csv("data/yt_doordash_girl_comments_AGGR.csv")
+
+    print(f"Num rows (video_df): {video_df.shape[0]}")
+    print(f"Num rows (comments_df): {comments_df.shape[0]}")
+    print("Starting data cleaning...\n")
+
+    # remove irrelevant rows
+    video_df = video_df[~video_df['video_id'].isin(remove_list)]
+    video_df.reset_index(drop=True, inplace=True)
+
+    comments_df = comments_df[~comments_df['video_id'].isin(remove_list)]
+    comments_df.reset_index(drop=True, inplace=True)
+
+    # remove duplicates
+    video_df.drop_duplicates(subset=['video_id'], inplace=True)
+
+    print(f"Num rows (video_df): {video_df.shape[0]}")
+    print(f"Num rows (comments_df): {comments_df.shape[0]}")
+
+    video_df.to_csv("yt_dordash_girl_video_finalAGGR_clean.csv", index=False)
+    comments_df.to_csv("yt_doordash_girl_comments_AGGR_clean.csv", index=False)
+

@@ -5,8 +5,8 @@ Module: main.py
 """
 
 import pandas as pd
-from youtube_scrape import *
-from data_processing import *
+# from youtube_scrape import *
+from data_processing import clean_agg
 
 video_columns = [
     'video_id',
@@ -66,7 +66,10 @@ def main():
         'rWFdvIXiI',
         'R0IAtFlRPq4',
         'NMFZjDfe5C8',
-        '5No0Io1vBho' # unavail video
+        '5No0Io1vBho', # unavail video
+        '_0lUbqA1d24', # irrelevant
+        'jR1UyOGWUE0',
+        'oSKuK4xNPFs'
     ]
 
     # df = pd.read_csv("data/yt_doordash_girl_url_AGGR_clean.csv")
@@ -78,6 +81,9 @@ def main():
     #     batch_list.append(f'batch{i}')
 
     # final_aggregate()
+
+    clean_agg(remove_id)
+
 
 
 def fetch_comments(id_list):
