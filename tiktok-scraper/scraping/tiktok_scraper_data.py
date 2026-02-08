@@ -6,7 +6,7 @@ from TikTokApi import TikTokApi
 from datetime import datetime, timezone
 from tiktok_scraper_id import load_tags
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_FOLDER = BASE_DIR / "data"
 IN_FILE = DATA_FOLDER / "ids.json"
 OUT_FILE = DATA_FOLDER / "raw_data.csv"
@@ -108,7 +108,8 @@ async def main():
 
     # store in csv
     pd.DataFrame(data).to_csv(OUT_FILE, index=False)
-        
+    
+
 async def test():
     async with TikTokApi() as api:
         await api.create_sessions(

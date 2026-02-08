@@ -7,7 +7,7 @@
 **File format:** CSV  
 **One row represents:** One TikTok video  
 **Language coverage:** Multiple (e.g., English, Spanish, Unknown)  
-**# of rows**: Currently 304, will obtain more
+**# of rows**: Currently 304 --(after filtering out non-relevant)--> 274
 
 ### Data Collection Notes
 - Video metadata was collected in [tiktok_scraper_data](tiktok_scraper_data.py) by videos ids collected in [tiktok_scraper_id](tiktok_scraper_id.py).  

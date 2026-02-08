@@ -11,7 +11,7 @@ Thank you to the code refereced from the following:
 UA: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0"
 # Output Folder
 # PROXY = {"server": "http://host:port"}
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 TOPICS = BASE_DIR / "topics.txt"
 OUT_FOLDER = BASE_DIR / "data"
 OUT_FILE = OUT_FOLDER / "ids.json"
