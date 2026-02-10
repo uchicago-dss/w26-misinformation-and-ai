@@ -31,7 +31,7 @@ def get_transcript(video_url):
 
 # Process multiple videos
 video_urls = [
-    'https://www.tiktok.com/@f0ureyes.com/video/7502525122545225003',
+    'https://www.tiktok.com/@_/video/7502525122545225003',
     # ... more URLs
 ]
 
@@ -44,3 +44,4 @@ for url in video_urls:
 # Save to CSV
 df = pd.DataFrame(results)
 df.to_csv('transcripts.csv', index=False)
+print("done")
