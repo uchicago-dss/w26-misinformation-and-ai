@@ -6,7 +6,9 @@ Module: main.py
 
 import pandas as pd
 # from youtube_scrape import *
-from data_processing import clean_agg
+from data_processing import *
+from vader import *
+
 
 video_columns = [
     'video_id',
@@ -35,8 +37,6 @@ def main():
         'Olivia Henderson AI',
         'Olivia Henderson court'
     ]
-
-    # aggregate("url", queries[:])
 
     '''
     The list remove_id includes video ids for YouTube videos unrelated to the
@@ -69,21 +69,11 @@ def main():
         '5No0Io1vBho', # unavail video
         '_0lUbqA1d24', # irrelevant
         'jR1UyOGWUE0',
-        'oSKuK4xNPFs'
+        'oSKuK4xNPFs',
     ]
+    # 'IgQK3tz-fKM' -> in foreign lang, added after main processing
 
-    # df = pd.read_csv("data/yt_doordash_girl_url_AGGR_clean.csv")
-    # video_id_list = df['video_id'].astype(str).tolist() # want a list
-    # channel_id_list = df['channel_id'].astype(str).tolist()
-
-    # batch_list = []
-    # for i in range(1, 14):
-    #     batch_list.append(f'batch{i}')
-
-    # final_aggregate()
-
-    clean_agg(remove_id)
-
+    vader_tscript_processing()
 
 
 def fetch_comments(id_list):
@@ -103,6 +93,7 @@ def fetch_comments(id_list):
         batch_num += 1
         time.sleep(5)
 
+
 def fetch_transcript(id_list):
     batch_size = 10
     batch_num = 2
@@ -117,6 +108,21 @@ def fetch_transcript(id_list):
         print(f"Successfully ran get_trancsripts_data for batch {batch_num}!\n")
         batch_num += 1
         time.sleep(5)
+
+
+def fetch_vader(df, type):
+
+    if type == 'transcript':
+        df.dropna(subset=['transcript'], inplace=True)
+        results = pd.concat([vader(r.video_id, r.transcript, type) for r in df.itertuples()], ignore_index=True)
+    else:
+        df.dropna(subset=['text_display'], inplace=True)
+        results = pd.concat([vader(r.video_id, r.text_display, type) for r in df.itertuples()], ignore_index=True)
+
+    results.to_csv(f"{type}_vader.csv", index=False)
+    print(f"Success for {type}!")
+
+    return None
 
 if __name__ == "__main__":
     main()
