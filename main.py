@@ -73,7 +73,10 @@ def main():
     ]
     # 'IgQK3tz-fKM' -> in foreign lang, added after main processing
 
-    vader_tscript_processing()
+
+    # df = pd.read_csv("data/yt_doordash_girl_comments_AGGR_clean.csv")
+    # fetch_vader(df, 'comments')
+    vader_comments_processing()
 
 
 def fetch_comments(id_list):
@@ -117,9 +120,9 @@ def fetch_vader(df, type):
         results = pd.concat([vader(r.video_id, r.transcript, type) for r in df.itertuples()], ignore_index=True)
     else:
         df.dropna(subset=['text_display'], inplace=True)
-        results = pd.concat([vader(r.video_id, r.text_display, type) for r in df.itertuples()], ignore_index=True)
+        results = pd.concat([vader(r.video_id, r.text_display, type, r.comment_id, r.parent_id) for r in df.itertuples()], ignore_index=True)
 
-    results.to_csv(f"{type}_vader.csv", index=False)
+    results.to_csv(f"yt_{type}_vader.csv", index=False)
     print(f"Success for {type}!")
 
     return None

@@ -21,13 +21,24 @@ vader_tscript_cols = [
     'neg_count'
 ]
 
-# vader_comments_cols = [
-#     'video_id',
-#     'comment_count',
-#     'pos_count',
-#     'neu_count',
-#     'neg_count'
-# ]
+vader_comment_byparent_cols = [
+    'video_id',
+    'parent_id',
+    'parent_avg',
+    'parent_category',
+    'replies_avg',
+    'replies_category',
+    'replies_stdev'
+]
+vader_comment_byvideo_cols = [
+    'video_id',
+    'comments_avg',
+    'comments_category',
+    'comments_stdev',
+    'comments_pos_count',
+    'comments_neu_count',
+    'comments_neg_count'
+]
 
 def aggregate_batch(key_word, query_list):
     df = []
@@ -158,7 +169,7 @@ def vader_tscript_processing():
     #   - iterate through indices 0 to 4, inclusive. find the average and stdv
 
     print("=" * 80)
-    print("Youtube Transcripts Analysis\n")
+    print("YouTube Transcripts Analysis\n")
 
     grouped = df.groupby('video_id')
     results = []
@@ -213,42 +224,138 @@ def vader_tscript_processing():
     return None
 
 
-def vader_comments_processing():
-    """
-    [INCOMPLETE]
-
-    Data Cleaning:
-    - drop the rows where video_id = IgQK3tz-fKM (language is in russian so
-        results are skewed to neutral)
-    
-    Analysis:
-    - find average for compound score for each nest of responses and how
-        they relate to the compound score of the parent comment
-    - standard dev for all coomments under a particular video id
-    """
-    # # 1) read in data
-    # df = pd.read_csv("data/yt_comments_vader.csv")
-
-    # # 2) filter out video id that has commnets in another langugae
-    # df = df[df['video_id'] != 'IgQK3tz-fKM']
-    # df.to_csv("yt_comments_vader_clean.csv")
-
-    # # 3) analysis
-    # print("\n", "=" * 80)
-    # print("Youtube Comments Analysis\n")
-    # grouped = df.groupby('video_id')
-
-
 def categorize(compound):
     """
     Categorizes the sentiment of a given sentence beased on compound score.
     """
 
     if compound >= 0.05:
-        category = "sympathetic"
+        return 'sympathetic'
     elif compound <= -0.05:
-        category = "inflammatory"
-    else:
-        category = "neutral"
+        return 'inflammatory'
 
-    return category
+    return 'neutral'
+
+
+def vader_tscript_sum_stats():
+    df = pd.read_csv('data/yt_vader_tscript_analysis.csv')
+    print(f'sympathetic hooks count: {(df['hook_category'] == 'sympathetic').sum()}')
+    print(f'neutral hooks count: {(df['hook_category'] == 'neutral').sum()}')
+    print(f'Inflammatory hooks count: {(df['hook_category'] == 'inflammatory').sum()}')
+
+    print('=' * 80)
+
+    print(f'sympathetic overall count: {(df['overall_category'] == 'sympathetic').sum()}')
+    print(f'neutral overall count: {(df['overall_category'] == 'neutral').sum()}')
+    print(f'Inflammatory overall count: {(df['overall_category'] == 'inflammatory').sum()}')
+
+
+def vader_comments_processing():
+    """
+    Data cleaning and analysis for vader video transcript results.
+
+    Analysis:
+    - for every comment, find average compound score
+    - count total # positive, negative, neutral (avg) comments for each video ID
+    - also for the replies, count # positive, negative, neutral
+
+    Categories (based on vader github):
+    - positive sentiment: compound score >= 0.05 "sympathetic"
+    - neutral sentiment: 0.05 > compound score > -0.05 "neutral"
+    - negative sentiment: compound score <= -0.05 "inflammatory"
+    """
+    # 1) read in data
+    df = pd.read_csv("data/yt_comments_vader.csv")
+
+    # 2) analysis by parent comment
+    print("Starting analysis by parent comment...")
+
+    by_parent = []
+    grouped = df.groupby('parent_id')
+
+    for name, group in grouped:
+        # try:
+        print(f"Analyzing comments for {name}...")
+        replies_avg = group['compound'].mean()
+    
+        try:
+            replies_stdev = statistics.stdev(group['compound'])
+        except:
+            replies_stdev = None
+
+        parent_avg = df[df['comment_id'] == name]['compound'].mean()
+
+        row = {
+            'video_id': group['video_id'].iloc[0],
+            'parent_id': name,
+            'parent_avg': parent_avg,
+            'parent_category': categorize(parent_avg),
+            'replies_avg': replies_avg,
+            'replies_category': categorize(replies_avg),
+            'replies_stdev': replies_stdev
+        }
+        by_parent.append(row)
+
+        # except:
+        #     print("=" * 80)
+        #     print(f"ERROR for {name}")
+        #     print("=" * 80)
+    
+    by_parent_df = pd.DataFrame(by_parent, columns=vader_comment_byparent_cols)
+    by_parent_df.to_csv("yt_comments_vader_analysis_byparent.csv")
+
+
+    print("Analysis by parent comment done!")
+    print("=" * 80)
+
+    # 3) analysis by video
+    print("Starting analysis by video...")
+
+    grouped = df.groupby('video_id')
+
+    by_video = []
+    for name, group in grouped:
+        # try:
+        print(f"Analyzing comments for {name}...")
+        avg = group['compound'].mean()
+
+        try:
+            stdev = statistics.stdev(group['compound'])
+        except:
+            stdev = None
+
+        grouped_id = group.groupby('comment_id')
+
+        pos = 0
+        neu = 0
+        neg = 0
+
+        for _, g in grouped_id:
+            category = categorize(g['compound'].mean())
+            if category == 'sympathetic':
+                pos += 1
+            elif category == 'inflammatory':
+                neg += 1
+            else:
+                neu += 1
+
+        row = {
+            'video_id': name,
+            'comments_avg': avg,
+            'comments_category': categorize(avg),
+            'comments_stdev': stdev,
+            'comments_pos_count': pos,
+            'comments_neu_count': neu,
+            'comments_neg_count': neg
+        }
+        by_video.append(row)
+
+        # except:
+        #     print("=" * 80)
+        #     print(f"ERROR for {name}")
+        #     print("=" * 80)
+    
+    by_video_df = pd.DataFrame(by_video, columns=vader_comment_byvideo_cols)
+    by_video_df.to_csv("yt_comments_vader_analysis_byvideo.csv")
+
+    print("Analysis by vidoe done!")
