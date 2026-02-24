@@ -53,20 +53,20 @@ def main():
         if record['transcript'] is not None:
             continue
 
-        try:
-            url = f"https://www.tiktok.com/@_/video/{record['video_id']}"
-            transcript_data = get_transcript(url)
-            if transcript_data:
-                record['transcript'] = transcript_data['transcript']
-        except Exception as e:
-            with open(FILE_PATH, "w") as f:
-                json.dump(video_list, f, indent=4)
-            print(f"Error occurred: {e}. Progress saved.")
-            sys.exit()
+    #     try:
+    #         url = f"https://www.tiktok.com/@_/video/{record['video_id']}"
+    #         transcript_data = get_transcript(url)
+    #         if transcript_data:
+    #             record['transcript'] = transcript_data['transcript']
+    #     except Exception as e:
+    #         with open(FILE_PATH, "w") as f:
+    #             json.dump(video_list, f, indent=4)
+    #         print(f"Error occurred: {e}. Progress saved.")
+    #         sys.exit()
 
-    with open(FILE_PATH, "w") as f:
-        json.dump(video_list, f, indent=4)
-    print(f"Finished. Progress saved.")
+    # with open(FILE_PATH, "w") as f:
+    #     json.dump(video_list, f, indent=4)
+    # print(f"Finished. Progress saved.")
     
     df = pd.read_csv(DATA_FOLDER / "tiktok_clean_data.csv")
     transcript_map = {record['video_id']: record['transcript'] for record in video_list}
