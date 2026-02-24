@@ -4,7 +4,7 @@ from pathlib import Path
 import json
 import sys
 
-API_KEY = 'wAT6GAj0dBcqVp9i5Q5mrtri7Hn2'
+API_KEY = 'RImoCIugWlbuFGiFqGc2K3FIa9n2'
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_FOLDER = BASE_DIR / "data"
 
