@@ -1,0 +1,3 @@
+video_id,type,hook_stdev,hook_compound,hook_category,overall_stdev,overall_compound,overall_category,pos_count,neu_count,neg_count,delta_compound,eng_ratio,z-score
+eAF4_2edowo,transcript,0.5018332840695204,-0.32,inflammatory,0.3508381155799669,-0.0277057894736842,neutral,95,167,118,0.2922942105263158,652.4990401438425,3.8606767891456935
+tKdJkhBFqtI,transcript,0.0345248895725967,-0.01544,neutral,0.3548299318965439,0.0503385245901639,sympathetic,41,48,33,0.0657785245901639,553.2065042922027,3.1671663228488196

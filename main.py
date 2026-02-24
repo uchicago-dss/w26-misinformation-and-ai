@@ -7,7 +7,7 @@ Module: main.py
 import pandas as pd
 # from youtube_scrape import *
 from data_processing import *
-from vader import *
+# from vader import *
 
 
 video_columns = [
@@ -76,7 +76,10 @@ def main():
 
     # df = pd.read_csv("data/yt_doordash_girl_comments_AGGR_clean.csv")
     # fetch_vader(df, 'comments')
-    vader_comments_processing()
+    # vader_tscript_processing()
+    # engagement_analysis()
+    # engagement_outliers()
+    correlation_matrix()
 
 
 def fetch_comments(id_list):
