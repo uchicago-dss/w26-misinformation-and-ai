@@ -57,27 +57,248 @@ def remove_caps_sequences(text, min_consecutive_caps=3):
 
 from trafilatura.metadata import extract_metadata
 
-def get_article_content(url, nlp):
-    downloaded = trafilatura.fetch_url(url)
+import json
+from urllib.parse import urlparse
 
-    if not downloaded:
-        raise Exception("Download failed")
+def fetch_html_requests(url: str, timeout: int = 10) -> str | None:
+    """Fallback fetcher using requests with headers + timeout."""
+    try:
+        r = requests.get(url, headers=headers, timeout=timeout)
+        # Many sites return 403/429; keep status for debugging by raising
+        r.raise_for_status()
+        return r.text
+    except Exception:
+        return None
 
-    tra_text = trafilatura.extract(downloaded)
 
-    if not tra_text or len(tra_text.strip()) == 0:
-        raise Exception("Could not extract article content")
+def extract_date_from_url(url: str) -> str | None:
+    """
+    Try extracting date from URL patterns like /2025/11/19/ or -2025-11-19- etc.
+    Returns a raw date string parsable by dateutil.
+    """
+    # /YYYY/MM/DD/
+    m = re.search(r"/(20\d{2})/(\d{2})/(\d{2})/", url)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
 
-    metadata = extract_metadata(downloaded)
-    publish_date = metadata.date if metadata else None
+    # -YYYY-MM-DD- or _YYYY-MM-DD_
+    m = re.search(r"(20\d{2})-(\d{2})-(\d{2})", url)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
 
+    # /YYYY/MM/ (no day) -> treat as 1st of month
+    m = re.search(r"/(20\d{2})/(\d{2})/", url)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-01"
+
+    return None
+
+
+def extract_date_from_html(html: str) -> str | None:
+    """
+    Extract publish date from:
+    - OpenGraph / article meta tags
+    - <time datetime="">
+    - JSON-LD (NewsArticle)
+    Returns raw date string.
+    """
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Common meta tags
+        meta_selectors = [
+            ("meta", {"property": "article:published_time"}),
+            ("meta", {"name": "article:published_time"}),
+            ("meta", {"name": "pubdate"}),
+            ("meta", {"name": "publish-date"}),
+            ("meta", {"name": "publication_date"}),
+            ("meta", {"name": "date"}),
+            ("meta", {"property": "og:published_time"}),
+        ]
+        for tag_name, attrs in meta_selectors:
+            tag = soup.find(tag_name, attrs=attrs)
+            if tag and tag.get("content"):
+                return tag["content"].strip()
+
+        # <time datetime="...">
+        t = soup.find("time")
+        if t and t.get("datetime"):
+            return t["datetime"].strip()
+
+        # JSON-LD
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script.get_text(strip=True))
+                # JSON-LD may be list or dict
+                candidates = data if isinstance(data, list) else [data]
+                for obj in candidates:
+                    if not isinstance(obj, dict):
+                        continue
+                    # Sometimes @graph
+                    if "@graph" in obj and isinstance(obj["@graph"], list):
+                        candidates.extend(obj["@graph"])
+                        continue
+                    if obj.get("@type") in {"NewsArticle", "Article", "ReportageNewsArticle"}:
+                        for k in ["datePublished", "dateCreated", "dateModified"]:
+                            if obj.get(k):
+                                return str(obj[k]).strip()
+            except Exception:
+                continue
+
+    except Exception:
+        return None
+
+    return None
+
+import json
+from urllib.parse import urlparse
+
+def fetch_html_requests(url: str, timeout: int = 10) -> str | None:
+    """Fallback fetcher using requests with headers + timeout."""
+    try:
+        r = requests.get(url, headers=headers, timeout=timeout)
+        # Many sites return 403/429; keep status for debugging by raising
+        r.raise_for_status()
+        return r.text
+    except Exception:
+        return None
+
+
+def extract_date_from_url(url: str) -> str | None:
+    """
+    Try extracting date from URL patterns like /2025/11/19/ or -2025-11-19- etc.
+    Returns a raw date string parsable by dateutil.
+    """
+    # /YYYY/MM/DD/
+    m = re.search(r"/(20\d{2})/(\d{2})/(\d{2})/", url)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+
+    # -YYYY-MM-DD- or _YYYY-MM-DD_
+    m = re.search(r"(20\d{2})-(\d{2})-(\d{2})", url)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+
+    # /YYYY/MM/ (no day) -> treat as 1st of month
+    m = re.search(r"/(20\d{2})/(\d{2})/", url)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-01"
+
+    return None
+
+
+def extract_date_from_html(html: str) -> str | None:
+    """
+    Extract publish date from:
+    - OpenGraph / article meta tags
+    - <time datetime="">
+    - JSON-LD (NewsArticle)
+    Returns raw date string.
+    """
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Common meta tags
+        meta_selectors = [
+            ("meta", {"property": "article:published_time"}),
+            ("meta", {"name": "article:published_time"}),
+            ("meta", {"name": "pubdate"}),
+            ("meta", {"name": "publish-date"}),
+            ("meta", {"name": "publication_date"}),
+            ("meta", {"name": "date"}),
+            ("meta", {"property": "og:published_time"}),
+        ]
+        for tag_name, attrs in meta_selectors:
+            tag = soup.find(tag_name, attrs=attrs)
+            if tag and tag.get("content"):
+                return tag["content"].strip()
+
+        # <time datetime="...">
+        t = soup.find("time")
+        if t and t.get("datetime"):
+            return t["datetime"].strip()
+
+        # JSON-LD
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script.get_text(strip=True))
+                # JSON-LD may be list or dict
+                candidates = data if isinstance(data, list) else [data]
+                for obj in candidates:
+                    if not isinstance(obj, dict):
+                        continue
+                    # Sometimes @graph
+                    if "@graph" in obj and isinstance(obj["@graph"], list):
+                        candidates.extend(obj["@graph"])
+                        continue
+                    if obj.get("@type") in {"NewsArticle", "Article", "ReportageNewsArticle"}:
+                        for k in ["datePublished", "dateCreated", "dateModified"]:
+                            if obj.get(k):
+                                return str(obj[k]).strip()
+            except Exception:
+                continue
+
+    except Exception:
+        return None
+
+    return None
+
+
+def get_article_content(url, nlp, timeout=10):
+    """
+    Robust content + date extraction.
+    1) Try trafilatura fetch+extract.
+    2) If fails, use requests to fetch HTML then trafilatura.extract(html).
+    3) Date: trafilatura metadata -> html meta/time/jsonld -> url.
+    """
+    downloaded = None
+    tra_text = None
+    publish_date = None
+
+    # 1) trafilatura fetch
+    try:
+        downloaded = trafilatura.fetch_url(url, timeout=timeout)
+    except Exception:
+        downloaded = None
+
+    if downloaded:
+        try:
+            tra_text = trafilatura.extract(downloaded)
+        except Exception:
+            tra_text = None
+
+        try:
+            metadata = extract_metadata(downloaded)
+            publish_date = metadata.date if metadata else None
+        except Exception:
+            publish_date = None
+
+    # 2) fallback requests fetch
+    html = None
+    if not tra_text or len(str(tra_text).strip()) == 0:
+        html = fetch_html_requests(url, timeout=timeout)
+        if not html:
+            raise Exception("Download failed (trafilatura+requests)")
+
+        tra_text = trafilatura.extract(html)
+        if not tra_text or len(str(tra_text).strip()) == 0:
+            raise Exception("Could not extract article content")
+
+        # date fallback from html
+        if not publish_date:
+            publish_date = extract_date_from_html(html)
+
+    # 3) date fallback from URL
+    if not publish_date:
+        publish_date = extract_date_from_url(url)
+
+    # sentence split + clean
     doc = nlp(tra_text)
     tokenized_text = [x.text for x in doc.sents]
     cleaned_text = extract_article_text(tokenized_text, nlp)
-    gpt_format = '$*$ '.join([x.strip() for x in cleaned_text])
+    gpt_format = "$*$ ".join([x.strip() for x in cleaned_text])
 
     return gpt_format, publish_date
-
 
 
 def extract_article_text(paragraphs, nlp, min_words=3, min_density=0.3, min_caps_sequence=3):
@@ -167,7 +388,7 @@ def save_articles(urls, out_csv="articles.csv"):
             texts.append(text)
             print("[OK ]", url, "date=", std_date, "words=", len(text.replace("$*$", " ").split()))
         except Exception as e:
-            status = f"fail:{type(e).__name__}"
+            status = f"fail:{type(e).__name__}:{str(e)[:80]}"
             print("[FAIL]", url, status)
 
         rows.append({
@@ -301,7 +522,22 @@ if __name__ == "__main__":
             "https://thenerdstash.com/new-york-doordash-driver-arrested-for-recording-man-inside-his-home-and-posting-his-personal-details-people-dont-think-before-they-share/",
             "https://www.distractify.com/p/doordash-girl-arrested",
             "https://www.dailymail.co.uk/news/article-15301993/female-door-dash-driver-sexual-assault-arrest-oswego-new-york.html",
+            "https://www.timesnownews.com/world/us/us-news/who-is-livie-rose-henderson-doordash-driver-fired-after-reporting-sexual-harassment-on-job-video-article-153028991",
             "https://lawenforcementtoday.com/doordasher-arrested-over-tiktok-of-half-naked-customer",
+            "https://spitfirenews.com/p/doordash-and-darvo-attacks-on-working-class-women",
+            "https://thetab.com/2025/10/21/doordash-responds-to-driver-who-claimed-she-was-fired-after-reporting-on-job-sxual-assault",
+            "https://www.themarysue.com/doordash-driver-banned-after-complaint/",
+            "https://www.ibtimes.co.uk/who-livie-rose-henderson-doordash-girl-slammed-taking-video-customer-calling-sexual-assault-1749378",
+            "https://www.themarysue.com/doordash-customer-exposing-self/",
+            "https://tribune.com.pk/story/2573410/doordash-under-scrutiny-as-driver-faces-account-deactivation-after-alleged-harrassment-by-customer",
+            "https://www.ibtimes.co.uk/doordasher-says-she-was-sexually-assaulted-customer-why-are-people-saying-shes-not-victim-1748762",
+            "https://mothership.sg/2025/10/doordash-driver-sexually-harassed/",
+            "https://knowyourmeme.com/editorials/guides/what-is-the-doordash-sa-girl-video-the-controversy-surrounding-claims-from-tiktoker-irlmonsterhighdoll-explained",
+            "https://www.indiatimes.com/trending/who-is-livie-rose-henderson-and-why-was-she-fired-by-doordash-tiktok-video-shows-customer-allegedly-naked-as-she-claims-sexual-assault/articleshow/124715363.html",
+            "https://wegotthiscovered.com/social-media/that-was-my-only-way-to-make-money-doordash-fired-woman-days-after-she-reported-being-sexually-harassed-by-customer/",
+            "https://perezhilton.com/doordash-driver-fired-after-accusing-customer-of-sexual-assault/",
+            "https://www.freepressjournal.in/viral/doordash-driver-livie-henderson-fired-after-reporting-sexual-assault-incident-during-delivery-in-new-york-video",
+            "https://www.kgns.tv/2025/11/18/doordash-driver-charged-after-recording-posting-video-nude-customer-police-say/",
     ]
 
 texts = save_articles(urls)
